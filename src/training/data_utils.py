@@ -76,6 +76,36 @@ def make_dataloaders(X_train_raw, y_train, X_test_raw, y_test,
     return train_loader, test_loader, scaler
 
 
+def make_rnn_dataloaders(X_train_raw, y_train, X_test_raw, y_test,
+                         n_antennas: int, batch_size: int = 32, seed: int = 42):
+    """Like make_dataloaders but keeps the time-series shape for RNN input.
+
+    Output tensor shape: (N, seq_len, features) as expected by nn.LSTM with batch_first=True.
+    """
+    X_tr, X_te, y_tr, y_te, scaler = _normalise(
+        X_train_raw.copy(), y_train.copy(),
+        X_test_raw.copy(), y_test.copy(),
+        n_antennas,
+    )
+
+    seq_len = X_train_raw.shape[1]
+    n_features = n_antennas * 4
+
+    X_tr_t = torch.tensor(X_tr.reshape(-1, seq_len, n_features), dtype=torch.float32)
+    X_te_t = torch.tensor(X_te.reshape(-1, seq_len, n_features), dtype=torch.float32)
+    y_tr_t = torch.tensor(y_tr, dtype=torch.float32)
+    y_te_t = torch.tensor(y_te, dtype=torch.float32)
+
+    g = torch.Generator()
+    g.manual_seed(seed)
+
+    train_loader = DataLoader(TensorDataset(X_tr_t, y_tr_t),
+                              batch_size=batch_size, shuffle=True, generator=g)
+    test_loader = DataLoader(TensorDataset(X_te_t, y_te_t), batch_size=batch_size)
+
+    return train_loader, test_loader, scaler
+
+
 def make_cnn_dataloaders(X_train_raw, y_train, X_test_raw, y_test,
                          n_antennas: int, batch_size: int = 32, seed: int = 42):
     """Like make_dataloaders but keeps the time-series shape for CNN input (no flatten)."""

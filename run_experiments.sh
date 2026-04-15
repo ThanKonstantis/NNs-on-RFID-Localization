@@ -33,10 +33,6 @@
 #           └── cdf.png         CDF of distance errors
 #
 # Notes:
-#   - cnn / rnn models are NOT included by default because train.py feeds
-#     a flat feature vector that is incompatible with their forward pass.
-#     Pass --models cnn,rnn explicitly only if you have adapted the data
-#     pipeline for those architectures.
 #   - Uses MPLBACKEND=Agg so no display is required (runs headless).
 
 set -euo pipefail
@@ -46,7 +42,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
 # ─── Defaults ───────────────────────────────────────────────────────────────
-DEFAULT_MODELS=(simple relu leaky_relu leaky_relu2 leaky_relu4 leaky_relu_drop relu_drop tanh sigmoid mlp)
+DEFAULT_MODELS=(simple relu leaky_relu leaky_relu2 leaky_relu4 leaky_relu_drop relu_drop tanh sigmoid mlp cnn rnn)
 ANTENNAS=3
 EPOCHS=200
 FOLDS=5

@@ -11,7 +11,7 @@ from torch.optim import lr_scheduler
 
 from src.evaluation.metrics import eval_model_3d, plot_results
 from src.training.callbacks import EarlyStopping
-from src.training.data_utils import make_dataloaders
+from src.training.data_utils import make_dataloaders, make_cnn_dataloaders, make_rnn_dataloaders
 from src.training.trainer import train_test_model
 
 
@@ -33,6 +33,7 @@ def cross_validate(
     verbose: bool = True,
     run_dir: Path | None = None,
     run_config: dict | None = None,
+    dataloader_fn=None,
 ) -> dict:
     """Run K-fold cross-validation and final holdout evaluation.
 
@@ -43,6 +44,9 @@ def cross_validate(
 
     Returns a dict with model_name, mean_distance_error_cm, std, distances.
     """
+    if dataloader_fn is None:
+        dataloader_fn = make_dataloaders
+
     if run_dir is not None:
         run_dir = Path(run_dir)
         run_dir.mkdir(parents=True, exist_ok=True)
@@ -63,7 +67,7 @@ def cross_validate(
         X_train, y_train = _build_arrays(train_split, n_antennas)
         X_val, y_val = _build_arrays(val_split, n_antennas)
 
-        train_loader, val_loader, _ = make_dataloaders(
+        train_loader, val_loader, _ = dataloader_fn(
             X_train, y_train, X_val, y_val, n_antennas, batch_size
         )
 
@@ -101,7 +105,7 @@ def cross_validate(
     X_main, y_main = _build_arrays(main_data, n_antennas)
     X_holdout, y_holdout = _build_arrays(holdout_data, n_antennas)
 
-    train_loader_full, holdout_loader, scaler = make_dataloaders(
+    train_loader_full, holdout_loader, scaler = dataloader_fn(
         X_main, y_main, X_holdout, y_holdout, n_antennas, batch_size
     )
 

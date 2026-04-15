@@ -23,6 +23,7 @@ import torch.nn as nn
 from src.models.networks import MODEL_REGISTRY
 from src.preprocessing.dataset import load_experiment_data, split_data
 from src.training.cross_validation import cross_validate
+from src.training.data_utils import make_dataloaders, make_cnn_dataloaders, make_rnn_dataloaders
 
 
 OPTIMIZER_MAP = {
@@ -76,13 +77,26 @@ def main():
 
     # Compute input/output sizes
     trial = experiment_data[0][0]["path"]
-    input_len = trial.shape[0] * trial.shape[1] * args.antennas
+    seq_len = trial.shape[0]           # number of timesteps
+    n_features = trial.shape[1] * args.antennas  # total features (4 * n_antennas)
     output_len = len(experiment_data[0][0]["tag_pos"])
-    print(f"  input_len={input_len}, output_len={output_len}")
 
-    # Model params
+    # Model params and dataloader depend on the model's expected input format
     model_cls = MODEL_REGISTRY[args.model]
-    model_params = {"input_size": input_len, "output_size": output_len}
+    input_type = getattr(model_cls, "input_type", "flat")
+
+    if input_type == "cnn":
+        model_params = {"input_channels": n_features, "output_size": output_len}
+        dataloader_fn = make_cnn_dataloaders
+        print(f"  input=(channels={n_features}, seq_len={seq_len}), output_len={output_len}")
+    elif input_type == "rnn":
+        model_params = {"input_size": n_features, "output_size": output_len}
+        dataloader_fn = make_rnn_dataloaders
+        print(f"  input=(seq_len={seq_len}, features={n_features}), output_len={output_len}")
+    else:
+        model_params = {"input_size": seq_len * n_features, "output_size": output_len}
+        dataloader_fn = make_dataloaders
+        print(f"  input_len={seq_len * n_features}, output_len={output_len}")
 
     # Auto-generate run directory
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -137,6 +151,7 @@ def main():
         verbose=not args.quiet,
         run_dir=run_dir,
         run_config=run_config,
+        dataloader_fn=dataloader_fn,
     )
 
     print("\n=== Final Results ===")

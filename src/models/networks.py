@@ -141,6 +141,8 @@ class SigmoidModel(nn.Module):
 
 
 class CNN1DModel(nn.Module):
+    input_type = "cnn"
+
     def __init__(self, input_channels=8, output_size=3):
         super().__init__()
         self.conv_stack = nn.Sequential(
@@ -167,6 +169,8 @@ class CNN1DModel(nn.Module):
 
 
 class EnhancedRNN(nn.Module):
+    input_type = "rnn"
+
     def __init__(self, input_size=16, hidden_size=128, num_layers=3, output_size=3, dropout=0.1):
         super().__init__()
         self.lstm = nn.LSTM(
