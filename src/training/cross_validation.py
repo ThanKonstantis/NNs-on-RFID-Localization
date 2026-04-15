@@ -88,7 +88,8 @@ def cross_validate(
 
         cv_losses.append(best_loss)
         if verbose:
-            plot_results(np.array(arr_train), np.array(arr_val))
+            save_path = run_dir / f"fold_{fold_idx + 1}_loss.png" if run_dir else None
+            plot_results(np.array(arr_train), np.array(arr_val), save_path=save_path)
 
     # Clean up fold temp checkpoint
     Path(fold_ckpt).unlink(missing_ok=True)
@@ -125,7 +126,8 @@ def cross_validate(
         verbose=verbose,
     )
 
-    result = eval_model_3d(final_model, holdout_loader, scaler, device=device, verbose=verbose)
+    result = eval_model_3d(final_model, holdout_loader, scaler, device=device, verbose=verbose,
+                           save_path=run_dir / "predictions_3d.png" if run_dir else None)
 
     if run_dir is not None:
         _save_run(run_dir, result, run_config)

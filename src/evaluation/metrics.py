@@ -5,7 +5,7 @@ import numpy as np
 import torch
 
 
-def eval_model_3d(model, data_loader, scaler, device="cpu", verbose=True):
+def eval_model_3d(model, data_loader, scaler, device="cpu", verbose=True, save_path=None):
     """Evaluate a 3-D localization model and return error statistics."""
     model.eval()
     model.to(device)
@@ -28,7 +28,7 @@ def eval_model_3d(model, data_loader, scaler, device="cpu", verbose=True):
     std_err = np.std(distances)
 
     if verbose:
-        _plot_3d(y_true_real, y_pred_real, distances, mean_err, std_err)
+        _plot_3d(y_true_real, y_pred_real, distances, mean_err, std_err, save_path=save_path)
 
     return {
         "model_name": model.__class__.__name__,
@@ -38,7 +38,7 @@ def eval_model_3d(model, data_loader, scaler, device="cpu", verbose=True):
     }
 
 
-def plot_results(train_arr, test_arr):
+def plot_results(train_arr, test_arr, save_path=None):
     """Plot normalised train/test loss curves."""
     def _norm(a):
         mn, mx = np.min(a), np.max(a)
@@ -52,7 +52,11 @@ def plot_results(train_arr, test_arr):
     plt.title("Normalised Training Loss")
     plt.grid()
     plt.legend()
-    plt.show()
+    if save_path:
+        plt.savefig(save_path, dpi=150, bbox_inches="tight")
+        plt.close()
+    else:
+        plt.show()
 
 
 def plot_cdf(distances, label="Model", save_path=None):
@@ -74,7 +78,7 @@ def plot_cdf(distances, label="Model", save_path=None):
     plt.show()
 
 
-def _plot_3d(y_true, y_pred, distances, mean_err, std_err, n=20):
+def _plot_3d(y_true, y_pred, distances, mean_err, std_err, n=20, save_path=None):
     fig = plt.figure(figsize=(12, 12))
     ax = fig.add_subplot(111, projection="3d")
     ax.scatter(*y_true[:n].T, color="blue", label="Ground Truth", s=100)
@@ -90,4 +94,8 @@ def _plot_3d(y_true, y_pred, distances, mean_err, std_err, n=20):
     ax.set_zlabel("Z")
     ax.set_title(f"Ground Truth vs Predicted\nMean Error: {mean_err:.2f} cm  Std: {std_err:.2f} cm")
     ax.legend()
-    plt.show()
+    if save_path:
+        plt.savefig(save_path, dpi=150, bbox_inches="tight")
+        plt.close()
+    else:
+        plt.show()
