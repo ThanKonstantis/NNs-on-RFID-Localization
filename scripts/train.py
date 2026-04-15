@@ -6,12 +6,11 @@ containing model.pth, metrics.json, and distances.npy.
 Usage examples:
     python scripts/train.py --antennas 3
     python scripts/train.py --antennas 2 --model relu --epochs 200
-    python scripts/train.py --antennas 4 --model leaky_relu --hidden-units 256 --epochs 300
+    python scripts/train.py --antennas 4 --model leaky_relu --epochs 300
     python scripts/train.py --list-models
 """
 
 import argparse
-import inspect
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -39,7 +38,6 @@ def parse_args():
     parser.add_argument("--antennas", type=int, choices=[2, 3, 4], default=3)
     parser.add_argument("--model", default="leaky_relu",
                         help="Architecture name. Use --list-models to see all.")
-    parser.add_argument("--hidden-units", type=int, default=128)
     parser.add_argument("--epochs", type=int, default=200)
     parser.add_argument("--batch-size", type=int, default=32)
     parser.add_argument("--lr", type=float, default=1e-2)
@@ -85,8 +83,6 @@ def main():
     # Model params
     model_cls = MODEL_REGISTRY[args.model]
     model_params = {"input_size": input_len, "output_size": output_len}
-    if "hidden_units" in inspect.signature(model_cls.__init__).parameters:
-        model_params["hidden_units"] = args.hidden_units
 
     # Auto-generate run directory
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -96,7 +92,6 @@ def main():
     run_config = {
         "model":        args.model,
         "n_antennas":   args.antennas,
-        "hidden_units": args.hidden_units,
         "epochs":       args.epochs,
         "batch_size":   args.batch_size,
         "lr":           args.lr,
@@ -121,7 +116,7 @@ def main():
     }
 
     print(f"\nTraining {model_cls.__name__} | antennas={args.antennas} | "
-          f"hidden={args.hidden_units} | epochs={args.epochs} | folds={args.folds}")
+          f"epochs={args.epochs} | folds={args.folds}")
     print(f"Run will be saved to: {run_dir}/\n")
 
     result = cross_validate(
