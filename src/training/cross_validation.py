@@ -91,7 +91,7 @@ def cross_validate(
         )
 
         cv_losses.append(best_loss)
-        if verbose:
+        if verbose or run_dir:
             save_path = run_dir / f"fold_{fold_idx + 1}_loss.png" if run_dir else None
             plot_results(np.array(arr_train), np.array(arr_val), save_path=save_path)
 
