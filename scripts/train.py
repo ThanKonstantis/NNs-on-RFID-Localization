@@ -75,11 +75,12 @@ def main():
     main_data, holdout_data = split_data(experiment_data, args.holdout)
     print(f"  {len(experiment_data)} tags — {len(main_data)} main / {len(holdout_data)} holdout")
 
-    # Compute input/output sizes
-    trial = experiment_data[0][0]["path"]
+    # Compute input/output sizes from the first entry that has at least one antenna reading
+    first_entry = next(e[0] for e in experiment_data if len(e) > 0)
+    trial = first_entry["path"]
     seq_len = trial.shape[0]           # number of timesteps
     n_features = trial.shape[1] * args.antennas  # total features (4 * n_antennas)
-    output_len = len(experiment_data[0][0]["tag_pos"])
+    output_len = len(first_entry["tag_pos"])
 
     # Model params and dataloader depend on the model's expected input format
     model_cls = MODEL_REGISTRY[args.model]

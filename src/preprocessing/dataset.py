@@ -29,11 +29,15 @@ def build_single_arrays(data: list, n_antennas: int) -> tuple[np.ndarray, np.nda
     """One sample per unique tag: take the first n_antennas antennas, no permutations.
 
     Use this for parameter-free baselines where antenna order does not matter.
+    Entries with fewer than n_antennas readings are silently skipped (same
+    behaviour as build_permutation_arrays which uses itertools.permutations).
     Returns (input_array, labels) with shape (N_tags, interp_length, 4*n_antennas)
     and (N_tags, 3).
     """
     dataset, label_list = [], []
     for sublist in data:
+        if len(sublist) < n_antennas:
+            continue
         paths = np.hstack([sublist[k]["path"] for k in range(n_antennas)])
         dataset.append(paths)
         label_list.append(sublist[0]["tag_pos"])
