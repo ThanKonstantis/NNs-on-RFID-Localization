@@ -25,6 +25,21 @@ def split_data(data: list, holdout_ratio: float = 0.1):
     return main_data, holdout_data
 
 
+def build_single_arrays(data: list, n_antennas: int) -> tuple[np.ndarray, np.ndarray]:
+    """One sample per unique tag: take the first n_antennas antennas, no permutations.
+
+    Use this for parameter-free baselines where antenna order does not matter.
+    Returns (input_array, labels) with shape (N_tags, interp_length, 4*n_antennas)
+    and (N_tags, 3).
+    """
+    dataset, label_list = [], []
+    for sublist in data:
+        paths = np.hstack([sublist[k]["path"] for k in range(n_antennas)])
+        dataset.append(paths)
+        label_list.append(sublist[0]["tag_pos"])
+    return np.array(dataset), np.array(label_list)
+
+
 def build_permutation_arrays(data: list, n_antennas: int) -> tuple[np.ndarray, np.ndarray]:
     """Generate all permutations of `n_antennas` antenna paths for each tag and stack them.
 
