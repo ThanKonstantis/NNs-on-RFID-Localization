@@ -54,7 +54,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
 # ─── Defaults ───────────────────────────────────────────────────────────────
-DATA="Experiments/Raw_Data_Single_Antenna_0"
+DATA="Experiments/Experiment_Data.pkl"
 SELECTED_MODELS=()
 DEVICE_ARG=""
 
@@ -113,8 +113,8 @@ if [[ -d "$RESULTS_DIR" ]]; then
     exit 1
 fi
 
-if [[ ! -d "$DATA" ]]; then
-    echo "ERROR: Data directory '$DATA' not found." >&2
+if [[ ! -f "$DATA" ]]; then
+    echo "ERROR: Data file '$DATA' not found." >&2
     exit 1
 fi
 

@@ -44,6 +44,26 @@ def build_single_arrays(data: list, n_antennas: int) -> tuple[np.ndarray, np.nda
     return np.array(dataset), np.array(label_list)
 
 
+def build_2d_arrays(data: list) -> tuple[np.ndarray, np.ndarray]:
+    """Build 2-D single-antenna training arrays from the pkl data.
+
+    Each tag contributes one sample per antenna reading (no permutations).
+    The antenna path has shape (seq_len, 4) = [x_ant, y_ant, z_ant, phase].
+    Labels are (N, 3) = [x_tag, y_tag, z_tag] — callers slice [:, :2] for 2-D.
+
+    Returns
+    -------
+    input_array : (N, seq_len, 4)
+    labels      : (N, 3)
+    """
+    dataset, labels = [], []
+    for tag_readings in data:
+        for reading in tag_readings:
+            dataset.append(reading["path"][:, [0, 1, 3]])  # x_ant, y_ant, phase (drop z_ant)
+            labels.append(reading["tag_pos"])
+    return np.array(dataset), np.array(labels)
+
+
 def build_permutation_arrays(data: list, n_antennas: int) -> tuple[np.ndarray, np.ndarray]:
     """Generate all permutations of `n_antennas` antenna paths for each tag and stack them.
 

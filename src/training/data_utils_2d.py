@@ -17,7 +17,7 @@ from torch.utils.data import DataLoader, TensorDataset
 def _phase_offset_removal(X):
     """Subtract per-sample minimum from column 2 (phase channel). In-place."""
     for i in range(len(X)):
-        X[i, :, 2] -= np.min(X[i, :, 2])
+        X[i, :, -1] -= np.min(X[i, :, -1])
 
 
 def _abs_max_normalise(X_train, X_other):

@@ -1,11 +1,12 @@
 """Run the 2-D Phase Relock baseline on the single-antenna dataset.
 
-Loads the raw numpy data, reserves a 5% holdout (same split as the NN experiments),
+Loads data from Experiment_Data.pkl (same as the NN experiments),
+reserves a 10% holdout using the same split as cross_validate_2d,
 runs the nonlinear optimisation, and saves metrics.json + distances.npy.
 
 Usage:
     python scripts/run_baseline_2d.py
-    python scripts/run_baseline_2d.py --data Experiments/Raw_Data_Single_Antenna_0
+    python scripts/run_baseline_2d.py --data Experiments/Experiment_Data.pkl
 """
 
 import argparse
@@ -21,33 +22,35 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 
 from src.baselines.phase_relock_2d import run_phase_relock_2d
+from src.preprocessing.dataset import load_experiment_data, build_2d_arrays
 
-DEFAULT_DATA = "Experiments/Raw_Data_Single_Antenna_0"
+DEFAULT_DATA = "Experiments/Experiment_Data.pkl"
 
 
 def parse_args():
     parser = argparse.ArgumentParser(description="2-D Phase Relock baseline.")
     parser.add_argument("--data", default=DEFAULT_DATA,
-                        help="Directory with final_tensor.npy and final_labels.npy.")
+                        help="Path to Experiment_Data.pkl.")
     parser.add_argument("--quiet", action="store_true")
     return parser.parse_args()
 
 
 def main():
     args = parse_args()
-    data_dir = Path(args.data)
+    data_path = Path(args.data)
 
-    if not data_dir.is_dir():
-        print(f"ERROR: Data directory '{data_dir}' not found.")
+    if not data_path.exists():
+        print(f"ERROR: Data file '{data_path}' not found.")
         sys.exit(1)
 
-    print(f"Loading 2D data from {data_dir} ...")
-    info_tensor = np.load(data_dir / "final_tensor.npy")
-    rfid_label  = np.load(data_dir / "final_labels.npy")
+    print(f"Loading data from {data_path} ...")
+    experiment_data = load_experiment_data(data_path)
+    info_tensor, rfid_label = build_2d_arrays(experiment_data)
+    print(f"  Samples     : {len(info_tensor)}")
     print(f"  info_tensor : {info_tensor.shape}")
     print(f"  rfid_label  : {rfid_label.shape}")
 
-    # Use the same 5% holdout split as the NN cross_validate_2d
+    # Use the same 10% holdout split as cross_validate_2d
     _, X_holdout, _, y_holdout = train_test_split(
         info_tensor, rfid_label, test_size=0.10, random_state=42
     )
@@ -85,7 +88,7 @@ def main():
         },
         "evaluation_time_s": elapsed,
         "config": {
-            "data": str(data_dir),
+            "data":      str(data_path),
             "timestamp": datetime.now().isoformat(timespec="seconds"),
         },
     }
