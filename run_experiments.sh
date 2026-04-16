@@ -44,7 +44,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
 # ─── Defaults ───────────────────────────────────────────────────────────────
-DEFAULT_MODELS=(simple relu leaky_relu leaky_relu2 leaky_relu4 leaky_relu_drop relu_drop tanh sigmoid mlp cnn phase_relock rnn)
+DEFAULT_MODELS=(phase_relock simple relu leaky_relu leaky_relu2 leaky_relu4 leaky_relu_drop relu_drop tanh sigmoid mlp cnn rnn)
 ANTENNAS=3
 EPOCHS=200
 FOLDS=5
