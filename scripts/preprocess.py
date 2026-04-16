@@ -133,7 +133,8 @@ def build_tensor(root_folder: Path, experiment: str, interp_length: int,
                             "tag_name": tag,
                             "tag_pos": [rfid_x, rfid_y, rfid_z],
                         })
-            final_tensor.append(antenna_data)
+            if antenna_data:
+                final_tensor.append(antenna_data)
 
     with open(output_path, "wb") as f:
         pickle.dump(final_tensor, f)
