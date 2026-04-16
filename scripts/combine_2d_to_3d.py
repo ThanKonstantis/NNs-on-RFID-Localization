@@ -18,11 +18,16 @@ of n_antennas readings is processed:
 
   5. The estimate is compared to the ground-truth [x, y, z] tag position.
 
+The script scans the results_2D/ tree at any depth for metrics.json files
+and picks the experiment with the lowest mean_distance_error_cm that also
+has a model.pth.
+
 Usage:
-    python scripts/combine_2d_to_3d.py --results-dir results_2D/my_run
+    python scripts/combine_2d_to_3d.py
+    python scripts/combine_2d_to_3d.py --results-dir results_2D
     python scripts/combine_2d_to_3d.py --results-dir results_2D/my_run --n-antennas 3
-    python scripts/combine_2d_to_3d.py --results-dir results_2D/my_run \\
-        --data Experiments/Experiment_Data.pkl --output-dir results_3D_combined/my_run
+    python scripts/combine_2d_to_3d.py --results-dir results_2D \\
+        --data Experiments/Experiment_Data.pkl --output-dir results_3D_combined/my_run/2ant
 """
 
 import argparse
@@ -33,6 +38,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.nn as nn
@@ -50,14 +58,16 @@ def parse_args():
         description="Combine 2-D model predictions into 3-D positions.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("--results-dir", required=True,
-                        help="Path to a results_2D/<run_name>/ folder.")
+    parser.add_argument("--results-dir", default="results_2D",
+                        help="Path to a results_2D/ folder or a specific run inside it "
+                             "(default: results_2D).")
     parser.add_argument("--data", default="Experiments/Experiment_Data.pkl",
                         help="Path to Experiment_Data.pkl.")
     parser.add_argument("--n-antennas", type=int, default=2, choices=[2, 3, 4],
                         help="Number of antenna readings to combine per tag (default: 2).")
     parser.add_argument("--output-dir", default=None,
-                        help="Where to save results. Defaults to results_3D_combined/<run_name>/.")
+                        help="Where to save results. "
+                             "Defaults to results_3D_combined/<results_dir_name>/<N>ant/.")
     parser.add_argument("--device", default=None)
     return parser.parse_args()
 
@@ -65,16 +75,15 @@ def parse_args():
 # ─── Model loading ────────────────────────────────────────────────────────────
 
 def find_best_model_dir(results_dir: Path) -> tuple[Path, dict]:
-    """Scan all experiment sub-dirs and return the one with lowest mean error."""
+    """Recursively scan results_dir for metrics.json and return the experiment
+    directory with the lowest mean_distance_error_cm that also has a model.pth."""
     best_dir, best_config = None, None
     best_error = float("inf")
 
-    for exp_dir in sorted(results_dir.iterdir()):
-        if not exp_dir.is_dir():
-            continue
-        metrics_file = exp_dir / "metrics" / "metrics.json"
-        if not metrics_file.exists():
-            continue
+    for metrics_file in sorted(results_dir.rglob("metrics/metrics.json")):
+        exp_dir = metrics_file.parent.parent   # .../exp_key/metrics/metrics.json
+        if not (exp_dir / "model.pth").exists():
+            continue                            # skip baselines (no weights)
         with open(metrics_file) as f:
             m = json.load(f)
         err = m.get("mean_distance_error_cm", float("inf"))
@@ -84,9 +93,12 @@ def find_best_model_dir(results_dir: Path) -> tuple[Path, dict]:
             best_config = m
 
     if best_dir is None:
-        raise FileNotFoundError(f"No metrics.json found under {results_dir}")
+        raise FileNotFoundError(
+            f"No experiment with model.pth + metrics.json found under {results_dir}"
+        )
 
-    print(f"Best model: {best_dir.name}  (mean error {best_error:.2f} cm)")
+    print(f"Best model: {best_dir.relative_to(results_dir)}  "
+          f"(mean error {best_error:.2f} cm)")
     return best_dir, best_config
 
 
@@ -192,7 +204,6 @@ def get_antenna_yz_at_x(path_full: np.ndarray, x_target: float) -> tuple[float, 
     y_ant = path_full[:, 1]
     z_ant = path_full[:, 2]
 
-    # Sort by x for np.interp (requires non-decreasing x)
     sort_idx = np.argsort(x_ant)
     xs = x_ant[sort_idx]
     ys = y_ant[sort_idx]
@@ -235,6 +246,46 @@ def optimize_3d(circles: list) -> np.ndarray:
     return result.x
 
 
+# ─── Plotting ─────────────────────────────────────────────────────────────────
+
+def plot_predictions_3d(y_true: np.ndarray, y_pred: np.ndarray,
+                        distances: np.ndarray, mean_err: float, std_err: float,
+                        n: int = 20, save_path: Path = None) -> None:
+    """3-D scatter of ground truth vs predicted positions (first n combos)."""
+    from mpl_toolkits.mplot3d import Axes3D  # noqa: F401
+
+    n = min(n, len(y_true))
+    fig = plt.figure(figsize=(12, 10))
+    ax = fig.add_subplot(111, projection="3d")
+
+    ax.scatter(*y_true[:n].T, color="blue", label="Ground Truth", s=80)
+    ax.scatter(*y_pred[:n].T, color="red",  label="Predicted",    s=80, marker="^")
+
+    for gt, pred, d in zip(y_true[:n], y_pred[:n], distances[:n]):
+        ax.plot([gt[0], pred[0]], [gt[1], pred[1]], [gt[2], pred[2]],
+                color="gray", linestyle="--", linewidth=0.8)
+        mid = (gt + pred) / 2
+        ax.text(*mid, f"{d:.1f}", fontsize=7, ha="center",
+                bbox=dict(facecolor="white", alpha=0.3, edgecolor="none"))
+
+    ax.set_xlabel("X (cm)")
+    ax.set_ylabel("Y (cm)")
+    ax.set_zlabel("Z (cm)")
+    ax.set_title(
+        f"Ground Truth vs Predicted (3-D)\n"
+        f"Mean: {mean_err:.2f} cm   Std: {std_err:.2f} cm"
+    )
+    ax.legend()
+    fig.tight_layout()
+
+    if save_path:
+        plt.savefig(save_path, dpi=150, bbox_inches="tight")
+        plt.close(fig)
+        print(f"  predictions_3d.png")
+    else:
+        plt.show()
+
+
 # ─── Main ─────────────────────────────────────────────────────────────────────
 
 def main():
@@ -251,9 +302,17 @@ def main():
         print(f"ERROR: '{data_path}' not found.")
         sys.exit(1)
 
-    output_dir = Path(args.output_dir) if args.output_dir else \
-        Path("results_3D_combined") / results_dir.name
-    output_dir.mkdir(parents=True, exist_ok=True)
+    n_ant = args.n_antennas
+
+    if args.output_dir:
+        output_dir = Path(args.output_dir)
+    else:
+        output_dir = Path("results_3D_combined") / results_dir.name / f"{n_ant}ant"
+
+    metrics_dir = output_dir / "metrics"
+    images_dir  = output_dir / "images"
+    metrics_dir.mkdir(parents=True, exist_ok=True)
+    images_dir.mkdir(parents=True, exist_ok=True)
 
     # ── Load best model ───────────────────────────────────────────────────────
     best_dir, best_config = find_best_model_dir(results_dir)
@@ -269,9 +328,10 @@ def main():
     abs_max = compute_abs_max(experiment_data)
 
     # ── Combination loop ──────────────────────────────────────────────────────
-    n_ant   = args.n_antennas
-    errors  = []
-    n_tags  = 0
+    errors   = []
+    gt_list  = []
+    pred_list = []
+    n_tags   = 0
     n_combos = 0
 
     print(f"\nCombining {n_ant}-antenna predictions ...")
@@ -298,10 +358,14 @@ def main():
             p3d = optimize_3d(circles)
             err = float(np.linalg.norm(p3d - tag_pos))
             errors.append(err)
+            gt_list.append(tag_pos)
+            pred_list.append(p3d)
             n_combos += 1
 
     # ── Metrics ───────────────────────────────────────────────────────────────
-    errors = np.array(errors)
+    errors   = np.array(errors)
+    y_true   = np.array(gt_list)
+    y_pred   = np.array(pred_list)
     mean_err = float(np.mean(errors))
     std_err  = float(np.std(errors))
     pcts     = np.percentile(errors, [25, 50, 75, 90, 95, 99])
@@ -315,14 +379,15 @@ def main():
     print(f"  p90                         : {pcts[3]:.2f} cm")
     print(f"{'─'*50}")
 
+    # ── Save artifacts ────────────────────────────────────────────────────────
     metrics = {
-        "source_model":           best_dir.name,
+        "source_model":            str(best_dir.relative_to(results_dir)),
         "source_mean_error_2d_cm": best_config.get("mean_distance_error_cm"),
-        "n_antennas_combined":    n_ant,
-        "n_tags":                 n_tags,
-        "n_combinations":         n_combos,
-        "mean_distance_error_cm": round(mean_err, 4),
-        "std_cm":                 round(std_err, 4),
+        "n_antennas_combined":     n_ant,
+        "n_tags":                  n_tags,
+        "n_combinations":          n_combos,
+        "mean_distance_error_cm":  round(mean_err, 4),
+        "std_cm":                  round(std_err, 4),
         "percentiles_cm": {
             "p25": round(float(pcts[0]), 4),
             "p50": round(float(pcts[1]), 4),
@@ -333,13 +398,16 @@ def main():
         },
     }
 
-    with open(output_dir / "metrics.json", "w") as f:
+    with open(metrics_dir / "metrics.json", "w") as f:
         json.dump(metrics, f, indent=2)
-    np.save(output_dir / "distances.npy", errors)
+    np.save(metrics_dir / "distances.npy", errors)
+
+    plot_predictions_3d(y_true, y_pred, errors, mean_err, std_err,
+                        save_path=images_dir / "predictions_3d.png")
 
     print(f"\nSaved → {output_dir}/")
-    print(f"  metrics.json")
-    print(f"  distances.npy")
+    print(f"  metrics/metrics.json")
+    print(f"  metrics/distances.npy")
 
 
 if __name__ == "__main__":
