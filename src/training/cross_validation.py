@@ -35,6 +35,7 @@ def cross_validate(
     run_dir: Path | None = None,
     run_config: dict | None = None,
     dataloader_fn=None,
+    print_every: int = 10,
 ) -> dict:
     """Run K-fold cross-validation and final holdout evaluation.
 
@@ -89,6 +90,7 @@ def cross_validate(
             device=device,
             test=True,
             verbose=verbose,
+            print_every=print_every,
         )
 
         cv_losses.append(best_loss)
@@ -129,6 +131,7 @@ def cross_validate(
         device=device,
         test=True,
         verbose=verbose,
+        print_every=print_every,
     )
 
     t_eval_start = time.time()

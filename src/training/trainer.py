@@ -32,7 +32,8 @@ def test_step(model, data_loader, loss_fn, device="cpu"):
 
 
 def train_test_model(epoch, model, train_loader, test_loader, loss_fn, optimizer,
-                     scheduler, early_stopper=None, device="cpu", test=True, verbose=True):
+                     scheduler, early_stopper=None, device="cpu", test=True, verbose=True,
+                     print_every=10):
     torch.manual_seed(42)
     train_loss_arr = []
     test_loss_arr = []
@@ -48,7 +49,7 @@ def train_test_model(epoch, model, train_loader, test_loader, loss_fn, optimizer
             test_loss_arr.append(test_loss / len(test_loader))
 
             if verbose:
-                if epochs % 10 == 0 or epochs == 0 or epochs + 1 == epoch:
+                if epochs % print_every == 0 or epochs == 0 or epochs + 1 == epoch:
                     print(f"Epoch {epochs} | train={train_loss_arr[-1]:.6f} | test={test_loss_arr[-1]:.6f} | lr={lr}")
 
             if early_stopper is not None:
@@ -71,6 +72,6 @@ def train_test_model(epoch, model, train_loader, test_loader, loss_fn, optimizer
             train_loss_arr.append(epoch_loss / len(train_loader))
             scheduler.step(epoch_loss)
             lr = optimizer.param_groups[0]["lr"]
-            if verbose and (epochs % 10 == 0 or epochs == 0 or epochs + 1 == epoch):
+            if verbose and (epochs % print_every == 0 or epochs == 0 or epochs + 1 == epoch):
                 print(f"Epoch {epochs} | train={train_loss_arr[-1]:.6f} | lr={lr}")
         return train_loss_arr

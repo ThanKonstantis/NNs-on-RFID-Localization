@@ -153,6 +153,7 @@ def main():
         run_dir=run_dir,
         run_config=run_config,
         dataloader_fn=dataloader_fn,
+        print_every=1 if input_type == "rnn" else 10,
     )
 
     print("\n=== Final Results ===")
