@@ -24,7 +24,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 import numpy as np
 
 from src.baselines.phase_relock import run_phase_relock
-from src.preprocessing.dataset import build_permutation_arrays, load_experiment_data, split_data
+from src.preprocessing.dataset import build_single_arrays, load_experiment_data, split_data
 
 
 def parse_args():
@@ -43,8 +43,8 @@ def main():
     _, holdout_data = split_data(experiment_data, args.holdout)
     print(f"  {len(experiment_data)} total tags — {len(holdout_data)} holdout")
 
-    X_raw, y_true = build_permutation_arrays(holdout_data, args.antennas)
-    print(f"  {len(X_raw)} holdout samples (after antenna permutations)")
+    X_raw, y_true = build_single_arrays(holdout_data, args.antennas)
+    print(f"  {len(X_raw)} holdout samples (one per unique tag position)")
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     run_dir   = Path("saved_models") / f"{timestamp}_phase_relock_{args.antennas}ant"
