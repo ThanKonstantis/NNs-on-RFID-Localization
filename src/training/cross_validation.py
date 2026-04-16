@@ -1,6 +1,7 @@
 """K-fold cross-validation loop for RFID localization models."""
 
 import json
+import time
 from itertools import permutations
 from pathlib import Path
 
@@ -130,16 +131,19 @@ def cross_validate(
         verbose=verbose,
     )
 
+    t_eval_start = time.time()
     result = eval_model_3d(final_model, holdout_loader, scaler, device=device, verbose=verbose,
                            save_path=run_dir / "predictions_3d.png" if run_dir else None)
+    evaluation_time_s = round(time.time() - t_eval_start, 4)
 
     if run_dir is not None:
-        _save_run(run_dir, result, run_config)
+        _save_run(run_dir, result, run_config, evaluation_time_s)
 
     return result
 
 
-def _save_run(run_dir: Path, result: dict, run_config: dict | None) -> None:
+def _save_run(run_dir: Path, result: dict, run_config: dict | None,
+              evaluation_time_s: float = 0.0) -> None:
     """Save metrics.json and distances.npy to run_dir."""
     distances = result["distances"]
 
@@ -156,6 +160,7 @@ def _save_run(run_dir: Path, result: dict, run_config: dict | None) -> None:
             "p95": round(float(percentiles[4]), 4),
             "p99": round(float(percentiles[5]), 4),
         },
+        "evaluation_time_s": evaluation_time_s,
     }
     if run_config:
         metrics["config"] = run_config
