@@ -44,7 +44,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
 # ─── Defaults ───────────────────────────────────────────────────────────────
-DEFAULT_MODELS=(simple relu leaky_relu leaky_relu2 leaky_relu4 leaky_relu_drop relu_drop tanh sigmoid mlp cnn rnn)
+DEFAULT_MODELS=(simple relu leaky_relu leaky_relu2 leaky_relu4 leaky_relu_drop relu_drop tanh sigmoid mlp cnn phase_relock rnn)
 ANTENNAS=3
 EPOCHS=200
 FOLDS=5
@@ -154,20 +154,28 @@ for MODEL in "${MODELS[@]}"; do
     MODEL_DIR="$RESULTS_DIR/$MODEL"
     mkdir -p "$MODEL_DIR/metrics" "$MODEL_DIR/images"
 
-    # ── Run training ──────────────────────────────────────────────────────────
+    # ── Run training / baseline ───────────────────────────────────────────────
     TRAIN_OK=true
-    "$PYTHON" scripts/train.py \
-        --model       "$MODEL" \
-        --antennas    "$ANTENNAS" \
-        --epochs      "$EPOCHS" \
-        --folds       "$FOLDS" \
-        --lr          "$LR" \
-        --batch-size  "$BATCH_SIZE" \
-        --patience    "$PATIENCE" \
-        --data        "$DATA" \
-        --quiet \
-        2>&1 | tee "$MODEL_DIR/training.log" \
-        || TRAIN_OK=false
+    if [[ "$MODEL" == "phase_relock" ]]; then
+        "$PYTHON" scripts/run_baseline.py \
+            --antennas "$ANTENNAS" \
+            --data     "$DATA" \
+            2>&1 | tee "$MODEL_DIR/training.log" \
+            || TRAIN_OK=false
+    else
+        "$PYTHON" scripts/train.py \
+            --model       "$MODEL" \
+            --antennas    "$ANTENNAS" \
+            --epochs      "$EPOCHS" \
+            --folds       "$FOLDS" \
+            --lr          "$LR" \
+            --batch-size  "$BATCH_SIZE" \
+            --patience    "$PATIENCE" \
+            --data        "$DATA" \
+            --quiet \
+            2>&1 | tee "$MODEL_DIR/training.log" \
+            || TRAIN_OK=false
+    fi
 
     if [[ "$TRAIN_OK" == false ]]; then
         MSG="FAILED training $MODEL (exit code $?)"
