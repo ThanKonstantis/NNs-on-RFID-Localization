@@ -78,7 +78,7 @@ def plot_cdf(distances, label="Model", save_path=None):
     plt.show()
 
 
-def _plot_3d(y_true, y_pred, distances, mean_err, std_err, n=30, save_path=None):
+def _plot_3d(y_true, y_pred, distances, mean_err, std_err, n=20, save_path=None):
     fig = plt.figure(figsize=(12, 12))
     ax = fig.add_subplot(111, projection="3d")
     ax.scatter(*y_true[:n].T, color="blue", label="Ground Truth", s=100)
