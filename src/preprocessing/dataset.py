@@ -34,8 +34,6 @@ def build_single_arrays(data: list, n_antennas: int) -> tuple[np.ndarray, np.nda
     """
     dataset, label_list = [], []
     for sublist in data:
-        if len(sublist) < n_antennas:
-            continue
         paths = np.hstack([sublist[k]["path"] for k in range(n_antennas)])
         dataset.append(paths)
         label_list.append(sublist[0]["tag_pos"])

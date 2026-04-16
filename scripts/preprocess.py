@@ -113,12 +113,12 @@ def build_tensor(root_folder: Path, experiment: str, interp_length: int,
             rfid_z = row["Z"].values[0].item() * 100
 
             antenna_data = []
-            ant_num = 0
+            existing_antennas = 0
             for folder in folders:
                 unwrapped = os.path.join(folder_path, folder, "unwrapped_measurements")
                 if not os.path.exists(unwrapped):
                     continue
-                ant_num += 1
+                existing_antennas += 1
                 for f in os.listdir(unwrapped):
                     if f in (f"{tag}_processed.xlsx", f"{tag}_processed_smaller.xlsx"):
                         fp = os.path.join(unwrapped, f)
@@ -128,12 +128,14 @@ def build_tensor(root_folder: Path, experiment: str, interp_length: int,
                         info = tag_df[sel_cols].to_numpy()
                         res = lin_interpolation(info, interp_length)
                         antenna_data.append({
-                            "Antenna": ant_num,
+                            "Antenna": existing_antennas,
                             "path": res,
                             "tag_name": tag,
                             "tag_pos": [rfid_x, rfid_y, rfid_z],
                         })
-            final_tensor.append(antenna_data)
+            # Only keep tags that have valid data from every antenna
+            if len(antenna_data) == existing_antennas:
+                final_tensor.append(antenna_data)
 
     with open(output_path, "wb") as f:
         pickle.dump(final_tensor, f)
