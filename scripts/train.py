@@ -11,7 +11,9 @@ Usage examples:
 """
 
 import argparse
+import json
 import sys
+import time
 from datetime import datetime
 from pathlib import Path
 
@@ -133,6 +135,7 @@ def main():
           f"epochs={args.epochs} | folds={args.folds}")
     print(f"Run will be saved to: {run_dir}/\n")
 
+    t_start = time.time()
     result = cross_validate(
         main_data=main_data,
         holdout_data=holdout_data,
@@ -153,11 +156,20 @@ def main():
         run_config=run_config,
         dataloader_fn=dataloader_fn,
     )
+    runtime_s = round(time.time() - t_start, 2)
+
+    metrics_path = run_dir / "metrics.json"
+    with open(metrics_path) as f:
+        metrics = json.load(f)
+    metrics["runtime_s"] = runtime_s
+    with open(metrics_path, "w") as f:
+        json.dump(metrics, f, indent=2)
 
     print("\n=== Final Results ===")
     print(f"  Model:      {result['model_name']}")
     print(f"  Mean error: {result['mean_distance_error_cm']:.2f} cm")
     print(f"  Std:        {result['std']:.2f} cm")
+    print(f"  Runtime:    {runtime_s:.1f} s")
     print(f"  Saved to:   {run_dir}/")
 
 
