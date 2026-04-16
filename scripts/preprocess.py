@@ -133,8 +133,8 @@ def build_tensor(root_folder: Path, experiment: str, interp_length: int,
                             "tag_name": tag,
                             "tag_pos": [rfid_x, rfid_y, rfid_z],
                         })
-            # Only keep tags that have valid data from every antenna
-            if len(antenna_data) == existing_antennas:
+            # Only keep tags that have valid data from every antenna that was set up
+            if existing_antennas > 0 and len(antenna_data) == existing_antennas:
                 final_tensor.append(antenna_data)
 
     with open(output_path, "wb") as f:
