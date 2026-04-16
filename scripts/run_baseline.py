@@ -16,6 +16,7 @@ Usage:
 import argparse
 import json
 import sys
+import time
 from datetime import datetime
 from pathlib import Path
 
@@ -51,10 +52,12 @@ def main():
     run_dir.mkdir(parents=True, exist_ok=True)
 
     print(f"\nRunning PhaseRelock ({args.antennas} antennas) ...")
+    t_start = time.time()
     result = run_phase_relock(
         X_raw, y_true, args.antennas,
         save_path=run_dir / "predictions_3d.png",
     )
+    runtime_s = round(time.time() - t_start, 2)
 
     # ── Save metrics.json ─────────────────────────────────────────────────────
     distances   = result["distances"]
@@ -75,6 +78,7 @@ def main():
             "method":     "phase_relock",
             "n_antennas": args.antennas,
         },
+        "runtime_s": runtime_s,
     }
     with open(run_dir / "metrics.json", "w") as f:
         json.dump(metrics, f, indent=2)
@@ -84,6 +88,7 @@ def main():
     print(f"\n=== PhaseRelock Results ===")
     print(f"  Mean error : {result['mean_distance_error_cm']:.2f} cm")
     print(f"  Std        : {result['std']:.2f} cm")
+    print(f"  Runtime    : {runtime_s:.1f} s")
     print(f"  Saved to   : {run_dir}/")
     print(f"\nSaved → {run_dir}/")
     print(f"  metrics.json")

@@ -118,7 +118,7 @@ LOG_FILE="$RESULTS_DIR/run.log"
 SUMMARY_CSV="$RESULTS_DIR/summary.csv"
 ERRORS_LOG="$RESULTS_DIR/errors.log"
 
-echo "model,mean_error_cm,std_cm,p25_cm,p50_cm,p75_cm,p90_cm,p95_cm,p99_cm" \
+echo "model,mean_error_cm,std_cm,p25_cm,p50_cm,p75_cm,p90_cm,p95_cm,p99_cm,runtime_s" \
     > "$SUMMARY_CSV"
 
 # ─── Print run banner ────────────────────────────────────────────────────────
@@ -243,6 +243,7 @@ try:
         str(p.get("p90", "NA")),
         str(p.get("p95", "NA")),
         str(p.get("p99", "NA")),
+        str(m.get("runtime_s", "NA")),
     ]
     print(",".join(cols))
 except Exception as e:
