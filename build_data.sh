@@ -28,7 +28,7 @@ cd "$SCRIPT_DIR"
 # ─── Defaults ────────────────────────────────────────────────────────────────
 MEASUREMENTS_DIR="Experiments/Measurements"
 EXPERIMENT="Straight "
-INTERP_LENGTH=385
+INTERP_LENGTH=""
 SIZE_THRESHOLD=10240
 OUTPUT="Experiments/Experiment_Data.pkl"
 SKIP_TRANSFORM=false
@@ -44,7 +44,7 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         --measurements-dir) MEASUREMENTS_DIR="$2"; shift 2 ;;
         --experiment)       EXPERIMENT="$2";       shift 2 ;;
-        --interp-length)    INTERP_LENGTH="$2";    shift 2 ;;
+        --interp-length)    INTERP_LENGTH="$2";   shift 2 ;;
         --size-threshold)   SIZE_THRESHOLD="$2";   shift 2 ;;
         --output)           OUTPUT="$2";           shift 2 ;;
         --skip-transform)   SKIP_TRANSFORM=true;   shift   ;;
@@ -72,7 +72,7 @@ echo "  Building Experiment_Data pickle"
 echo "  Date             : $(date)"
 echo "  Measurements dir : $MEASUREMENTS_DIR"
 echo "  Experiment filter: $EXPERIMENT"
-echo "  Interp length    : $INTERP_LENGTH"
+echo "  Interp length    : ${INTERP_LENGTH:-auto (p75 for trajectory)}"
 echo "  Size threshold   : $SIZE_THRESHOLD bytes"
 echo "  Output           : $OUTPUT"
 echo "  Skip transform   : $SKIP_TRANSFORM"
@@ -83,10 +83,15 @@ echo ""
 ARGS=(
     --measurements-dir "$MEASUREMENTS_DIR"
     --experiment       "$EXPERIMENT"
-    --interp-length    "$INTERP_LENGTH"
     --size-threshold   "$SIZE_THRESHOLD"
     --output           "$OUTPUT"
 )
+
+# Only pass --interp-length when explicitly set; otherwise preprocess.py
+# auto-selects the p75 value for the trajectory (straight=368, s=468, v=402).
+if [[ -n "$INTERP_LENGTH" ]]; then
+    ARGS+=(--interp-length "$INTERP_LENGTH")
+fi
 
 if [[ "$SKIP_TRANSFORM" == true ]]; then
     ARGS+=(--skip-transform)
