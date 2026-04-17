@@ -20,6 +20,23 @@ import pandas as pd
 from src.preprocessing.interpolation import lin_interpolation
 from src.preprocessing.transforms import rotate_points_to_zero, rotate_with_respect
 
+# p75 of per-sample trajectory lengths, computed from raw measurements
+_INTERP_LENGTH_P75 = {
+    "straight": 368,
+    "s":        468,
+    "v":        402,
+}
+
+def _default_interp_length(experiment: str) -> int:
+    exp_lower = experiment.lower()
+    if "straight" in exp_lower:
+        return _INTERP_LENGTH_P75["straight"]
+    if "s" in exp_lower:
+        return _INTERP_LENGTH_P75["s"]
+    if "v" in exp_lower:
+        return _INTERP_LENGTH_P75["v"]
+    return 368  # fallback
+
 
 def transform_coordinates(root_folder: Path) -> None:
     """Step 1 — rotate all trajectories to a canonical frame and save processed xlsx files."""
@@ -147,8 +164,9 @@ def main():
                         help="Path to the Measurements folder (default: Experiments/Measurements)")
     parser.add_argument("--experiment", default="Straight ",
                         help="Substring to filter experiment folders (default: 'Straight ')")
-    parser.add_argument("--interp-length", type=int, default=385,
-                        help="Number of interpolation points (default: 385)")
+    parser.add_argument("--interp-length", type=int, default=None,
+                        help="Number of interpolation points. Defaults to the p75 "
+                             "for the selected path (straight=368, s=468, v=402).")
     parser.add_argument("--size-threshold", type=int, default=10240,
                         help="Minimum file size in bytes (default: 10240 = 10 KB)")
     parser.add_argument("--output", default="Experiments/Experiment_Data.pkl",
@@ -160,10 +178,14 @@ def main():
     root = Path(args.measurements_dir)
     output = Path(args.output)
 
+    interp_length = args.interp_length if args.interp_length is not None \
+        else _default_interp_length(args.experiment)
+    print(f"  Interp length: {interp_length} (path: '{args.experiment}')")
+
     if not args.skip_transform:
         transform_coordinates(root)
 
-    build_tensor(root, args.experiment, args.interp_length, args.size_threshold, output)
+    build_tensor(root, args.experiment, interp_length, args.size_threshold, output)
     print("Preprocessing complete.")
 
 

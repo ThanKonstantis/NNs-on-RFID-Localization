@@ -33,8 +33,24 @@ from src.preprocessing.interpolation import lin_interpolation
 
 EXPERIMENT_FILTER = "Straight "
 DEFAULT_MEASUREMENTS = "Experiments/Measurements"
-DEFAULT_INTERP_LENGTH = 385
 DEFAULT_SIZE_THRESHOLD = 10240   # 10 KB
+
+# p75 of per-sample trajectory lengths, computed from raw measurements
+_INTERP_LENGTH_P75 = {
+    "straight": 368,
+    "s":        468,
+    "v":        402,
+}
+
+def _default_interp_length(experiment: str) -> int:
+    exp_lower = experiment.lower()
+    if "straight" in exp_lower:
+        return _INTERP_LENGTH_P75["straight"]
+    if "s" in exp_lower:
+        return _INTERP_LENGTH_P75["s"]
+    if "v" in exp_lower:
+        return _INTERP_LENGTH_P75["v"]
+    return 368  # fallback
 
 
 def parse_args():
@@ -43,8 +59,9 @@ def parse_args():
                         help="Root folder containing the measurement sub-folders.")
     parser.add_argument("--experiment", default=EXPERIMENT_FILTER,
                         help="Substring filter for experiment folders (default: 'Straight ').")
-    parser.add_argument("--interp-length", type=int, default=DEFAULT_INTERP_LENGTH,
-                        help="Number of interpolation points per trajectory (default: 385).")
+    parser.add_argument("--interp-length", type=int, default=None,
+                        help="Number of interpolation points per trajectory. Defaults to "
+                             "the p75 for the selected path (straight=368, s=468, v=402).")
     parser.add_argument("--size-threshold", type=int, default=DEFAULT_SIZE_THRESHOLD,
                         help="Minimum file size in bytes to include a reading (default: 10240).")
     parser.add_argument("--output-dir", default=None,
@@ -161,17 +178,20 @@ def main():
         print(f"ERROR: '{measurements_dir}' not found.")
         sys.exit(1)
 
+    interp_length = args.interp_length if args.interp_length is not None \
+        else _default_interp_length(args.experiment)
+
     print(f"Building 2D dataset")
     print(f"  Measurements : {measurements_dir}")
     print(f"  Experiment   : '{args.experiment}'")
-    print(f"  Interp length: {args.interp_length}")
+    print(f"  Interp length: {interp_length}")
     print(f"  Size threshold: {args.size_threshold} bytes")
     print()
 
     out = build(
         measurements_dir=measurements_dir,
         experiment=args.experiment,
-        interp_length=args.interp_length,
+        interp_length=interp_length,
         size_threshold=args.size_threshold,
         output_dir=args.output_dir,
     )
