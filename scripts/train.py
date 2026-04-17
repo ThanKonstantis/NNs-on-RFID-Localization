@@ -20,7 +20,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 import torch
 import torch.nn as nn
 
-from src.models.networks import MODEL_REGISTRY
+from src.models.networks import MODEL_REGISTRY, FlexibleMLP, FlexibleCNN, FlexibleRNN
 from src.preprocessing.dataset import load_experiment_data, split_data
 from src.training.cross_validation import cross_validate
 from src.training.data_utils import make_dataloaders, make_cnn_dataloaders, make_rnn_dataloaders
@@ -50,6 +50,20 @@ def parse_args():
     parser.add_argument("--device", default=None)
     parser.add_argument("--quiet", action="store_true")
     parser.add_argument("--list-models", action="store_true")
+    # ── Flexible architecture args ────────────────────────────────────────────
+    parser.add_argument("--hidden", default=None,
+                        help="Hidden/FC-head layer sizes as comma-separated ints "
+                             "(e.g. '128,64').  Used by mlp, flexible_cnn, flexible_rnn.")
+    parser.add_argument("--conv-layers", default=None,
+                        help="Conv blocks for flexible_cnn as "
+                             "'filters,kernel;filters,kernel;...' "
+                             "(e.g. '32,130;64,64;128,32').")
+    parser.add_argument("--rnn-hidden", type=int, default=None,
+                        help="LSTM hidden size for flexible_rnn.")
+    parser.add_argument("--rnn-layers", type=int, default=None,
+                        help="Number of LSTM layers for flexible_rnn.")
+    parser.add_argument("--bidirectional", action="store_true",
+                        help="Use a bidirectional LSTM (flexible_rnn only).")
     return parser.parse_args()
 
 
@@ -99,6 +113,31 @@ def main():
         dataloader_fn = make_dataloaders
         print(f"  input_len={seq_len * n_features}, output_len={output_len}")
 
+    # ── Flexible architecture overrides ──────────────────────────────────────
+    def _parse_hidden(s):
+        return tuple(int(x) for x in s.split(","))
+
+    if model_cls is FlexibleMLP and args.hidden:
+        model_params["hidden_units"] = _parse_hidden(args.hidden)
+
+    if model_cls is FlexibleCNN:
+        if args.conv_layers:
+            model_params["conv_layers"] = tuple(
+                tuple(int(v) for v in pair.split(","))
+                for pair in args.conv_layers.split(";")
+            )
+        if args.hidden:
+            model_params["hidden_units"] = _parse_hidden(args.hidden)
+
+    if model_cls is FlexibleRNN:
+        if args.rnn_hidden is not None:
+            model_params["hidden_size"] = args.rnn_hidden
+        if args.rnn_layers is not None:
+            model_params["num_layers"] = args.rnn_layers
+        model_params["bidirectional"] = args.bidirectional
+        if args.hidden:
+            model_params["hidden_units"] = _parse_hidden(args.hidden)
+
     # Auto-generate run directory
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     run_dir = Path("saved_models") / f"{timestamp}_{args.model}_{args.antennas}ant"
@@ -115,6 +154,16 @@ def main():
         "patience":     args.patience,
         "timestamp":    datetime.now().isoformat(timespec="seconds"),
     }
+    if args.hidden:
+        run_config["hidden"] = args.hidden
+    if args.conv_layers:
+        run_config["conv_layers"] = args.conv_layers
+    if args.rnn_hidden is not None:
+        run_config["rnn_hidden"] = args.rnn_hidden
+    if args.rnn_layers is not None:
+        run_config["rnn_layers"] = args.rnn_layers
+    if args.bidirectional:
+        run_config["bidirectional"] = True
 
     # Training config
     optimizer_cls = OPTIMIZER_MAP[args.optimizer]

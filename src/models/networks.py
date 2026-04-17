@@ -209,6 +209,79 @@ class FlexibleMLP(nn.Module):
         return self.linear_stack(x)
 
 
+class FlexibleCNN(nn.Module):
+    """CNN with configurable conv blocks and FC head.
+
+    conv_layers : sequence of (out_channels, kernel_size) tuples, one per block.
+                  Each block is Conv1d → BatchNorm1d → LeakyReLU(0.1).
+                  MaxPool1d(2) is inserted between blocks; AdaptiveAvgPool1d(1) caps the stack.
+    hidden_units: FC head sizes.  hidden_units[0] must equal the last conv out_channels.
+                  The head is hidden_units[0] → ... → hidden_units[-1] → output_size.
+    """
+    input_type = "cnn"
+
+    def __init__(self, input_channels, output_size,
+                 conv_layers=((32, 7), (64, 5), (128, 3)),
+                 hidden_units=(128, 64)):
+        super().__init__()
+        blocks = []
+        in_ch = input_channels
+        for i, (out_ch, k) in enumerate(conv_layers):
+            blocks += [
+                nn.Conv1d(in_ch, out_ch, kernel_size=k, padding=k // 2),
+                nn.BatchNorm1d(out_ch),
+                nn.LeakyReLU(0.1),
+            ]
+            if i < len(conv_layers) - 1:
+                blocks.append(nn.MaxPool1d(2))
+            in_ch = out_ch
+        blocks.append(nn.AdaptiveAvgPool1d(1))
+        self.conv_stack = nn.Sequential(*blocks)
+        self.dropout = nn.Dropout(0.2)
+
+        fc = []
+        for i in range(len(hidden_units) - 1):
+            fc += [nn.Linear(hidden_units[i], hidden_units[i + 1]), nn.LeakyReLU(0.1)]
+        fc.append(nn.Linear(hidden_units[-1], output_size))
+        self.fc_stack = nn.Sequential(*fc)
+
+    def forward(self, x):
+        x = self.conv_stack(x).squeeze(-1)
+        return self.fc_stack(self.dropout(x))
+
+
+class FlexibleRNN(nn.Module):
+    """LSTM with configurable hidden size, depth, directionality, and FC head.
+
+    hidden_units: FC head sizes.  hidden_units[0] must equal hidden_size * (2 if
+                  bidirectional else 1).  The head is that size → ... → output_size.
+    """
+    input_type = "rnn"
+
+    def __init__(self, input_size, output_size,
+                 hidden_size=96, num_layers=2, bidirectional=False,
+                 hidden_units=(96, 48)):
+        super().__init__()
+        self.lstm = nn.LSTM(
+            input_size, hidden_size, num_layers,
+            batch_first=True,
+            bidirectional=bidirectional,
+            dropout=0.0 if num_layers == 1 else 0.1,
+        )
+        self.dropout = nn.Dropout(0.1)
+
+        fc = []
+        for i in range(len(hidden_units) - 1):
+            fc += [nn.Linear(hidden_units[i], hidden_units[i + 1]), nn.LeakyReLU(0.1)]
+        fc.append(nn.Linear(hidden_units[-1], output_size))
+        self.fc_stack = nn.Sequential(*fc)
+
+    def forward(self, x):
+        out, _ = self.lstm(x)
+        out = out[:, -1, :]          # last timestep
+        return self.fc_stack(self.dropout(out))
+
+
 # Registry — maps name → class for use from the CLI
 MODEL_REGISTRY = {
     "simple":           SimpleModel,
@@ -223,4 +296,6 @@ MODEL_REGISTRY = {
     "cnn":              CNN1DModel,
     "rnn":              EnhancedRNN,
     "mlp":              FlexibleMLP,
+    "flexible_cnn":     FlexibleCNN,
+    "flexible_rnn":     FlexibleRNN,
 }
