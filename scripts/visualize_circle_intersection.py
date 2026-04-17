@@ -1,17 +1,18 @@
 """Interactive 3-D browser visualisation of the circle-intersection method.
 
-For every tag in the dataset that has >= 2 antenna readings, and every
-combination of 2 antenna readings, the plot shows:
-  - Both antenna trajectories
+For every tag in the dataset that has >= n_antennas readings, and every
+combination of n_antennas readings, the plot shows:
+  - All antenna trajectories
   - The predicted circle for each antenna (locus of candidate tag positions)
   - The circle-centre marker (antenna position at the predicted x_tag)
   - The real tag position
   - The predicted 3-D tag position and error line to ground truth
 
-Use the dropdown (top-left) to navigate between tag / antenna-pair combos.
+Use the dropdown (top-left) to navigate between tag / antenna combos.
 
 Usage:
     python scripts/visualize_circle_intersection.py
+    python scripts/visualize_circle_intersection.py --n-antennas 3
     python scripts/visualize_circle_intersection.py --results-dir results_2D/my_run
     python scripts/visualize_circle_intersection.py --output my_vis.html
 """
@@ -54,8 +55,11 @@ def parse_args():
     p.add_argument("--results-dir", default="results_2D",
                    help="results_2D folder or a specific run inside it (default: results_2D).")
     p.add_argument("--data", default="Experiments/Experiment_Data.pkl")
-    p.add_argument("--output", default="results_3D_combined/circle_vis.html",
-                   help="Output HTML file (default: results_3D_combined/circle_vis.html).")
+    p.add_argument("--n-antennas", type=int, default=2, choices=[2, 3, 4],
+                   help="Number of antennas to combine per tag (default: 2).")
+    p.add_argument("--output", default=None,
+                   help="Output HTML file. Defaults to "
+                        "results_3D_combined/circle_vis_<N>ant.html.")
     p.add_argument("--device", default=None)
     return p.parse_args()
 
@@ -71,28 +75,31 @@ def circle_points(center: np.ndarray, radius: float, n: int = 120):
     return x, y, z
 
 
-# ─── Plotly traces ────────────────────────────────────────────────────────────
+# ─── Colour palette (supports up to 4 antennas) ───────────────────────────────
 
-ANT_LINE_COLORS   = ["royalblue",       "seagreen"]
-CIRCLE_COLORS     = ["cornflowerblue",  "mediumseagreen"]
-CENTER_COLORS     = ["darkblue",        "darkgreen"]
+ANT_LINE_COLORS = ["royalblue",      "seagreen",      "darkorange",   "mediumpurple"]
+CIRCLE_COLORS   = ["cornflowerblue", "mediumseagreen", "sandybrown",  "plum"]
+CENTER_COLORS   = ["darkblue",       "darkgreen",     "chocolate",    "purple"]
 
-# Fixed number of traces emitted per combo — must not change.
-TRACES_PER_COMBO  = 9   # 2 traj + 2 circles + 2 centres + GT + pred + error line
+
+# ─── Traces ───────────────────────────────────────────────────────────────────
+
+def traces_per_combo(n_ant: int) -> int:
+    """3 traces per antenna (trajectory + circle + centre) + GT + pred + error line."""
+    return 3 * n_ant + 3
 
 
 def _combo_traces(combo: dict, visible: bool) -> list[go.Scatter3d]:
-    """Build the 9 Scatter3d traces for one (tag, antenna-pair) combo."""
+    """Build Scatter3d traces for one (tag, antenna-combo) entry."""
     traces = []
-    lg     = combo["label"]          # shared legendgroup keeps legend tidy
+    lg     = combo["label"]
+    n_ant  = len(combo["ant_indices"])
 
-    ant_labels = [f"Antenna {combo['ant_i']}", f"Antenna {combo['ant_j']}"]
-
-    for k, (path, center, radius) in enumerate([
-        (combo["path1"], combo["center1"], combo["radius1"]),
-        (combo["path2"], combo["center2"], combo["radius2"]),
-    ]):
-        lbl = ant_labels[k]
+    for k in range(n_ant):
+        path   = combo["paths"][k]
+        center = combo["centers"][k]
+        radius = combo["radii"][k]
+        lbl    = f"Antenna {combo['ant_indices'][k]}"
 
         # Trajectory
         traces.append(go.Scatter3d(
@@ -158,26 +165,28 @@ def _combo_traces(combo: dict, visible: bool) -> list[go.Scatter3d]:
         legendgroup=lg, showlegend=visible,
     ))
 
-    assert len(traces) == TRACES_PER_COMBO, f"Expected {TRACES_PER_COMBO}, got {len(traces)}"
+    expected = traces_per_combo(n_ant)
+    assert len(traces) == expected, f"Expected {expected} traces, got {len(traces)}"
     return traces
 
 
 # ─── Build figure ─────────────────────────────────────────────────────────────
 
-def build_figure(all_combos: list) -> go.Figure:
-    fig = go.Figure()
+def build_figure(all_combos: list, n_ant: int) -> go.Figure:
+    fig  = go.Figure()
+    tpc  = traces_per_combo(n_ant)
 
     for i, combo in enumerate(all_combos):
         for t in _combo_traces(combo, visible=(i == 0)):
             fig.add_trace(t)
 
-    n_total = len(all_combos) * TRACES_PER_COMBO
+    n_total = len(all_combos) * tpc
 
     buttons = []
     for i, combo in enumerate(all_combos):
-        vis      = [False] * n_total
-        start    = i * TRACES_PER_COMBO
-        for j in range(TRACES_PER_COMBO):
+        vis   = [False] * n_total
+        start = i * tpc
+        for j in range(tpc):
             vis[start + j] = True
         buttons.append(dict(
             label=combo["btn_label"],
@@ -223,6 +232,7 @@ def build_figure(all_combos: list) -> go.Figure:
 def main():
     args   = parse_args()
     device = args.device or ("cuda" if torch.cuda.is_available() else "cpu")
+    n_ant  = args.n_antennas
 
     results_dir = Path(args.results_dir)
     if not results_dir.is_dir():
@@ -233,6 +243,9 @@ def main():
     if not data_path.exists():
         print(f"ERROR: '{data_path}' not found.")
         sys.exit(1)
+
+    output_path = Path(args.output) if args.output else \
+        Path(f"results_3D_combined/circle_vis_{n_ant}ant.html")
 
     # ── Load best 2-D model ───────────────────────────────────────────────────
     best_dir, best_config = find_best_model_dir(results_dir)
@@ -247,59 +260,58 @@ def main():
     print("Computing abs_max from training portion ...")
     abs_max = compute_abs_max(experiment_data)
 
-    # ── Run inference for every (tag, antenna-pair) combo ─────────────────────
+    # ── Run inference for every (tag, antenna-combo) ──────────────────────────
     all_combos = []
-    print("\nRunning inference ...")
+    print(f"\nRunning inference ({n_ant}-antenna combos) ...")
 
     for tag_idx, tag_readings in enumerate(experiment_data):
-        if len(tag_readings) < 2:
+        if len(tag_readings) < n_ant:
             continue
 
         tag_pos = np.array(tag_readings[0]["tag_pos"])
 
-        for ant_i, ant_j in combinations(range(len(tag_readings)), 2):
-            r1 = tag_readings[ant_i]
-            r2 = tag_readings[ant_j]
+        for ant_indices in combinations(range(len(tag_readings)), n_ant):
+            paths   = []
+            centers = []
+            radii   = []
+            circles = []
 
-            path1 = r1["path"]
-            t1    = preprocess_sample(path1, abs_max)
-            x1, rad1 = run_inference(model, t1, abs_max, device)
-            y1, z1   = get_antenna_yz_at_x(path1, x1)
-            center1  = np.array([x1, y1, z1])
+            for idx in ant_indices:
+                reading = tag_readings[idx]
+                path    = reading["path"]
+                tensor  = preprocess_sample(path, abs_max)
+                x_pred, r_pred = run_inference(model, tensor, abs_max, device)
+                y_ant, z_ant   = get_antenna_yz_at_x(path, x_pred)
+                center = np.array([x_pred, y_ant, z_ant])
 
-            path2 = r2["path"]
-            t2    = preprocess_sample(path2, abs_max)
-            x2, rad2 = run_inference(model, t2, abs_max, device)
-            y2, z2   = get_antenna_yz_at_x(path2, x2)
-            center2  = np.array([x2, y2, z2])
+                paths.append(path)
+                centers.append(center)
+                radii.append(r_pred)
+                circles.append((center, r_pred))
 
-            pred = optimize_3d([(center1, rad1), (center2, rad2)])
+            pred = optimize_3d(circles)
             err  = float(np.linalg.norm(pred - tag_pos))
 
+            ant_str = ",".join(str(i) for i in ant_indices)
             all_combos.append({
-                "label":    (f"Tag {tag_idx}  |  Antennas ({ant_i}, {ant_j})  |  "
-                             f"Error = {err:.1f} cm"),
-                "btn_label": f"T{tag_idx} A({ant_i},{ant_j})  {err:.0f} cm",
-                "ant_i":    ant_i,
-                "ant_j":    ant_j,
-                "path1":    path1,
-                "path2":    path2,
-                "center1":  center1,
-                "radius1":  rad1,
-                "center2":  center2,
-                "radius2":  rad2,
-                "tag_pos":  tag_pos,
-                "pred_pos": pred,
-                "error":    err,
+                "label":       (f"Tag {tag_idx}  |  Antennas ({ant_str})  |  "
+                                f"Error = {err:.1f} cm"),
+                "btn_label":   f"T{tag_idx} A({ant_str})  {err:.0f}cm",
+                "ant_indices": list(ant_indices),
+                "paths":       paths,
+                "centers":     centers,
+                "radii":       radii,
+                "tag_pos":     tag_pos,
+                "pred_pos":    pred,
+                "error":       err,
             })
 
     print(f"  {len(all_combos)} combos across {len(experiment_data)} tags")
 
     # ── Build Plotly figure ───────────────────────────────────────────────────
     print("\nBuilding interactive figure ...")
-    fig = build_figure(all_combos)
+    fig = build_figure(all_combos, n_ant)
 
-    output_path = Path(args.output)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     fig.write_html(str(output_path), include_plotlyjs="cdn")
 
