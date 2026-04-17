@@ -220,11 +220,6 @@ for EXP_KEY in "${MODELS[@]}"; do
 
     # ── Run training / baseline ───────────────────────────────────────────────
     if [[ "$XARGS" == "BASELINE" ]]; then
-        if [[ "$ANTENNAS" -lt 2 ]]; then
-            echo "  Skipping phase_relock: requires >= 2 antennas" | tee -a "$LOG_FILE"
-            echo "${EXP_KEY},NA,NA,NA,NA,NA,NA,NA,NA" >> "$SUMMARY_CSV"
-            continue
-        fi
         "$PYTHON" scripts/run_baseline.py \
             --antennas "$ANTENNAS" \
             --data     "$DATA" \

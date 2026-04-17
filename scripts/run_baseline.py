@@ -30,7 +30,7 @@ from src.preprocessing.dataset import build_single_arrays, load_experiment_data,
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Run PhaseRelock baseline.")
-    parser.add_argument("--antennas", type=int, choices=[2, 3, 4], default=3)
+    parser.add_argument("--antennas", type=int, choices=[1, 2, 3, 4], default=3)
     parser.add_argument("--data",    default="Experiments/Experiment_Data.pkl")
     parser.add_argument("--holdout", type=float, default=0.1)
     return parser.parse_args()

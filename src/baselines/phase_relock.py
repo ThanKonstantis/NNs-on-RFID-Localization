@@ -5,8 +5,10 @@ per-antenna phase offset simultaneously, using the physical relationship:
 
     phase_measured = (4π / λ) * dist(tag, antenna) + phase_offset
 
-Supports 2, 3, and 4 antennas.  Bounds and initial guess are taken directly
+Supports 1, 2, 3, and 4 antennas.  Bounds and initial guess are taken directly
 from the original notebook experiments for each antenna count.
+Note: 1-antenna SAR localization only works for curved trajectories (S, V path)
+where the antenna's movement provides sufficient geometric diversity.
 """
 
 import numpy as np
@@ -23,11 +25,13 @@ CM2M   = 1.0 / 100.0   # raw data is in cm; optimizer works in metres
 # ── Per-antenna-count optimisation config ────────────────────────────────────
 # Position bounds for [x_tag, y_tag, z_tag] in metres
 _XYZ_BOUNDS = {
+    1: ([0.5, 0.5, 0.0], [2.4, 1.0, 2.0]),
     2: ([0.5, 0.5, 0.0], [2.4, 1.0, 2.0]),
     3: ([0.5, 0.5, 0.0], [2.4, 1.0, 2.0]),
     4: ([0.0, 0.0, 0.0], [4.0, 4.0, 4.0]),
 }
 _XYZ_START = {
+    1: [1.43, 0.82, 0.5],
     2: [1.43, 0.82, 0.5],
     3: [1.43, 0.82, 0.5],
     4: [1.00, 0.70, 1.0],
