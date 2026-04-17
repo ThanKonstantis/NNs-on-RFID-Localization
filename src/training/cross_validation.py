@@ -182,8 +182,15 @@ def _save_run(run_dir: Path, result: dict, run_config: dict | None,
 def _build_arrays(data: list, n_antennas: int):
     dataset, labels = [], []
     for sublist in data:
-        for perm in permutations(sublist, n_antennas):
-            connected = [item["path"] for item in perm]
-            dataset.append(np.hstack(connected))
-            labels.append(perm[0]["tag_pos"])
+        if n_antennas == 4:
+            # All 4 antennas used — fixed order, no permutation augmentation.
+            if len(sublist) < 4:
+                continue
+            dataset.append(np.hstack([item["path"] for item in sublist[:4]]))
+            labels.append(sublist[0]["tag_pos"])
+        else:
+            for perm in permutations(sublist, n_antennas):
+                connected = [item["path"] for item in perm]
+                dataset.append(np.hstack(connected))
+                labels.append(perm[0]["tag_pos"])
     return np.array(dataset), np.array(labels)
