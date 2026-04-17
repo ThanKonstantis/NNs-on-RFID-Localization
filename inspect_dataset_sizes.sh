@@ -26,9 +26,9 @@ from pathlib import Path
 data_dir = Path(sys.argv[1])
 
 TRAJECTORIES = {
-    "straight": {"pkl": "Experiment_Data_Straight.pkl", "n_ant_3d": [2, 3, 4]},
-    "s_path":   {"pkl": "Experiment_Data_S.pkl",        "n_ant_3d": [1, 2, 3, 4]},
-    "v_path":   {"pkl": "Experiment_Data_V.pkl",        "n_ant_3d": [1, 2, 3, 4]},
+    "straight": {"pkl": "Experiment_Data_Straight.pkl", "n_ant_3d": [2, 3, 4], "p75_seq_len": 368},
+    "s_path":   {"pkl": "Experiment_Data_S.pkl",        "n_ant_3d": [1, 2, 3, 4], "p75_seq_len": 468},
+    "v_path":   {"pkl": "Experiment_Data_V.pkl",        "n_ant_3d": [1, 2, 3, 4], "p75_seq_len": 402},
 }
 
 
@@ -79,9 +79,15 @@ for traj, cfg in TRAJECTORIES.items():
     dist = antenna_distribution(data)
     total_readings = sum(k * v for k, v in dist.items())
 
+    actual_seq_len = data[0][0]["path"].shape[0]
+    expected_seq_len = cfg["p75_seq_len"]
+    seq_len_note = "" if actual_seq_len == expected_seq_len \
+        else f"  *** WARNING: expected p75={expected_seq_len} ***"
+
     print(f"\n{'='*62}")
     print(f"  Trajectory : {traj}")
     print(f"  File       : {pkl_path}")
+    print(f"  seq_len    : {actual_seq_len}{seq_len_note}")
     print(f"  Total tags : {len(data)}  (antenna distribution: {dist})")
     print(f"  Total antenna readings: {total_readings}")
     print(f"{'='*62}")
