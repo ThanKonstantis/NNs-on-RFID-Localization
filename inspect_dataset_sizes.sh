@@ -43,12 +43,18 @@ def build_2d(data):
 
 
 def build_3d(data, n_antennas):
-    """All permutations of n_antennas from each tag's readings — 4*n features."""
+    """Permutations for n<4; fixed order (no permutations) for n=4."""
     X, y = [], []
     for tag in data:
-        for perm in permutations(tag, n_antennas):
-            X.append(np.hstack([item["path"] for item in perm]))
-            y.append(perm[0]["tag_pos"])
+        if n_antennas == 4:
+            if len(tag) < 4:
+                continue
+            X.append(np.hstack([item["path"] for item in tag[:4]]))
+            y.append(tag[0]["tag_pos"])
+        else:
+            for perm in permutations(tag, n_antennas):
+                X.append(np.hstack([item["path"] for item in perm]))
+                y.append(perm[0]["tag_pos"])
     return np.array(X), np.array(y)
 
 
