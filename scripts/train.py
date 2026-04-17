@@ -36,7 +36,7 @@ OPTIMIZER_MAP = {
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Train RFID localization model.")
-    parser.add_argument("--antennas", type=int, choices=[2, 3, 4], default=3)
+    parser.add_argument("--antennas", type=int, choices=[1, 2, 3, 4], default=3)
     parser.add_argument("--model", default="leaky_relu",
                         help="Architecture name. Use --list-models to see all.")
     parser.add_argument("--epochs", type=int, default=200)
