@@ -231,17 +231,22 @@ def _residuals(P, circles):
 def optimize_3d(circles: list) -> np.ndarray:
     """Find 3-D point minimising Σ D(P, Cᵢ)².
 
+    Tags are always in the positive-Y half-space, so Y is bounded to [0, ∞)
+    and the initial guess is forced into positive Y to avoid the mirror solution.
+
     circles : list of (center_array, radius) tuples
     Returns : estimated tag position [px, py, pz]
     """
     centers = np.array([A for A, _ in circles])
     x0 = centers.mean(axis=0)
+    x0[1] = abs(x0[1])          # start in positive-Y half-space
 
     result = least_squares(
         _residuals,
         x0=x0,
         args=(circles,),
         method="trf",
+        bounds=([-np.inf, 0.0, -np.inf], [np.inf, np.inf, np.inf]),
     )
     return result.x
 
