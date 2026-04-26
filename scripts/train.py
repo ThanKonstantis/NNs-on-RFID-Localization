@@ -49,6 +49,8 @@ def parse_args():
     parser.add_argument("--data", default="Experiments/Experiment_Data.pkl")
     parser.add_argument("--device", default=None)
     parser.add_argument("--quiet", action="store_true")
+    parser.add_argument("--no-permutations", action="store_true",
+                        help="Disable permutation augmentation; use one fixed ordering per tag.")
     parser.add_argument("--list-models", action="store_true")
     # ── Flexible architecture args ────────────────────────────────────────────
     parser.add_argument("--hidden", default=None,
@@ -140,7 +142,8 @@ def main():
 
     # Auto-generate run directory
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    run_dir = Path("saved_models") / f"{timestamp}_{args.model}_{args.antennas}ant"
+    perm_tag = "_noperm" if args.no_permutations else ""
+    run_dir = Path("saved_models") / f"{timestamp}_{args.model}{perm_tag}_{args.antennas}ant"
 
     # Config dict saved into metrics.json
     run_config = {
@@ -164,6 +167,8 @@ def main():
         run_config["rnn_layers"] = args.rnn_layers
     if args.bidirectional:
         run_config["bidirectional"] = True
+    if args.no_permutations:
+        run_config["no_permutations"] = True
 
     # Training config
     optimizer_cls = OPTIMIZER_MAP[args.optimizer]
@@ -203,6 +208,7 @@ def main():
         run_config=run_config,
         dataloader_fn=dataloader_fn,
         print_every=1 if input_type == "rnn" else 10,
+        no_permutations=args.no_permutations,
     )
 
     print("\n=== Final Results ===")

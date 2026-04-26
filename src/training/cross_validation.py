@@ -36,6 +36,7 @@ def cross_validate(
     run_config: dict | None = None,
     dataloader_fn=None,
     print_every: int = 10,
+    no_permutations: bool = False,
 ) -> dict:
     """Run K-fold cross-validation and final holdout evaluation.
 
@@ -66,8 +67,8 @@ def cross_validate(
         train_split = [main_data[i] for i in train_idx]
         val_split = [main_data[i] for i in val_idx]
 
-        X_train, y_train = _build_arrays(train_split, n_antennas)
-        X_val, y_val = _build_arrays(val_split, n_antennas)
+        X_train, y_train = _build_arrays(train_split, n_antennas, no_permutations)
+        X_val, y_val = _build_arrays(val_split, n_antennas, no_permutations)
 
         train_loader, val_loader, _ = dataloader_fn(
             X_train, y_train, X_val, y_val, n_antennas, batch_size
@@ -105,8 +106,8 @@ def cross_validate(
         print(f"\nCV done. Mean fold loss: {np.mean(cv_losses):.6f}")
 
     # --- Final training on all main data, evaluated on holdout ---
-    X_main, y_main = _build_arrays(main_data, n_antennas)
-    X_holdout, y_holdout = _build_arrays(holdout_data, n_antennas)
+    X_main, y_main = _build_arrays(main_data, n_antennas, no_permutations)
+    X_holdout, y_holdout = _build_arrays(holdout_data, n_antennas, no_permutations)
 
     train_loader_full, holdout_loader, scaler = dataloader_fn(
         X_main, y_main, X_holdout, y_holdout, n_antennas, batch_size
@@ -179,14 +180,14 @@ def _save_run(run_dir: Path, result: dict, run_config: dict | None,
     print(f"  distances.npy")
 
 
-def _build_arrays(data: list, n_antennas: int):
+def _build_arrays(data: list, n_antennas: int, no_permutations: bool = False):
     dataset, labels = [], []
     for sublist in data:
-        if n_antennas == 4:
-            # All 4 antennas used — fixed order, no permutation augmentation.
-            if len(sublist) < 4:
+        if n_antennas == 4 or no_permutations:
+            # Fixed order, no permutation augmentation.
+            if len(sublist) < n_antennas:
                 continue
-            dataset.append(np.hstack([item["path"] for item in sublist[:4]]))
+            dataset.append(np.hstack([item["path"] for item in sublist[:n_antennas]]))
             labels.append(sublist[0]["tag_pos"])
         else:
             for perm in permutations(sublist, n_antennas):

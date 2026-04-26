@@ -15,7 +15,8 @@
 #   --patience N       Early stopping patience (default: 90)
 #   --data     PATH    Experiment data pickle (default: Experiments/Experiment_Data.pkl)
 #   --models   LIST    Comma-separated experiment keys to run (default: all)
-#   --device   STR     pytorch device: cpu / cuda (default: auto-detect)
+#   --device          STR     pytorch device: cpu / cuda (default: auto-detect)
+#   --no-permutations         Disable permutation augmentation (one ordering per tag)
 #
 # Experiment schedule:
 #   mlp_128_128              — MLP(128, 128)
@@ -65,6 +66,7 @@ BATCH_SIZE=32
 PATIENCE=90
 DATA="Experiments/Experiment_Data.pkl"
 DEVICE_ARG=""
+NO_PERM=false
 SELECTED_MODELS=()
 
 DEFAULT_MODELS=(
@@ -106,7 +108,8 @@ while [[ $# -gt 0 ]]; do
         --patience)   PATIENCE="$2";                                      shift 2 ;;
         --data)       DATA="$2";                                          shift 2 ;;
         --models)     IFS=',' read -ra SELECTED_MODELS <<< "$2";         shift 2 ;;
-        --device)     DEVICE_ARG="--device $2";                          shift 2 ;;
+        --device)          DEVICE_ARG="--device $2";                     shift 2 ;;
+        --no-permutations) NO_PERM=true;                                 shift   ;;
         -h|--help)    usage ;;
         *) echo "Unknown option: $1" >&2; usage ;;
     esac
@@ -171,8 +174,10 @@ EXPERIMENT_ARGS["rnn_24_6_uni"]="--model flexible_rnn --rnn-hidden 24 --rnn-laye
 EXPERIMENT_ARGS["rnn_16_2_bi"]="--model flexible_rnn --rnn-hidden 16 --rnn-layers 2 --bidirectional --hidden 32,16"
 
 # ─── Common training flags ────────────────────────────────────────────────────
+NO_PERM_FLAG=""
+[[ "$NO_PERM" == true ]] && NO_PERM_FLAG="--no-permutations"
 COMMON="--antennas $ANTENNAS --epochs $EPOCHS --folds $FOLDS --lr $LR \
-        --batch-size $BATCH_SIZE --patience $PATIENCE --data $DATA $DEVICE_ARG --quiet"
+        --batch-size $BATCH_SIZE --patience $PATIENCE --data $DATA $DEVICE_ARG $NO_PERM_FLAG --quiet"
 
 # ─── Print run banner ────────────────────────────────────────────────────────
 banner() {
@@ -248,8 +253,13 @@ for EXP_KEY in "${MODELS[@]}"; do
                     | sort -r | head -1 || true)
     else
         MODEL_KEY=$(echo "$XARGS" | grep -oP '(?<=--model )\S+')
-        SAVED_DIR=$(ls -d saved_models/*_"${MODEL_KEY}"_"${ANTENNAS}"ant 2>/dev/null \
-                    | sort -r | head -1 || true)
+        if [[ "$NO_PERM" == true ]]; then
+            SAVED_DIR=$(ls -d saved_models/*_"${MODEL_KEY}"_noperm_"${ANTENNAS}"ant 2>/dev/null \
+                        | sort -r | head -1 || true)
+        else
+            SAVED_DIR=$(ls -d saved_models/*_"${MODEL_KEY}"_"${ANTENNAS}"ant 2>/dev/null \
+                        | sort -r | head -1 || true)
+        fi
     fi
 
     if [[ -z "$SAVED_DIR" || ! -d "$SAVED_DIR" ]]; then
