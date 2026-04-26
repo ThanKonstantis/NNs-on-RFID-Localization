@@ -39,22 +39,23 @@ _XYZ_START = {
 
 
 def _residuals(params, antennas, phases):
-    """Objective function (matches notebook formulation).
+    """Objective function for scipy.optimize.least_squares.
 
-    Accumulates squared residuals across all antennas into a single vector of
-    length seq_len, which scipy.optimize.least_squares minimises element-wise.
+    Returns a flat array of raw residuals (one per antenna × timestep).
+    least_squares minimises 0.5 * ||residuals||², i.e. the standard sum of
+    squared residuals across all antennas and all timesteps.
 
     params:   [x_tag, y_tag, z_tag, offset_0, ..., offset_{n-1}]
     antennas: list of (x_arr, y_arr, z_arr) tuples in metres, one per antenna
     phases:   list of phase arrays (radians), one per antenna
     """
     x_t, y_t, z_t = params[:3]
-    F = np.zeros(len(phases[0]))
+    parts = []
     for k, ((xa, ya, za), ph) in enumerate(zip(antennas, phases)):
         offset = params[3 + k]
         dist = np.sqrt((xa - x_t) ** 2 + (ya - y_t) ** 2 + (za - z_t) ** 2)
-        F += (ph - offset - (4.0 * np.pi / LAMBDA) * dist) ** 2
-    return F
+        parts.append(ph - offset - (4.0 * np.pi / LAMBDA) * dist)
+    return np.concatenate(parts)
 
 
 def _fit_one(sample_cm, n_antennas):

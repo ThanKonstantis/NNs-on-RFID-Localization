@@ -1,12 +1,10 @@
 """2-D Phase Relock baseline for single-antenna RFID localization.
 
-Matches the notebook's phase_relock() / theoretical_2D() / nonlinear_fit_2D() functions.
-
 Physical model (per timestep):
     phase = phase_offset + (4π / λ) * sqrt((x_tag - x_ant)² + (y_tag - y_ant)²)
 
-The residual returned to least_squares is the squared form (matches notebook):
-    F = (phase - offset - (4π/λ)*dist)²
+Residuals are raw (unsquared) so that scipy.optimize.least_squares minimises
+the standard sum of squared residuals: 0.5 * Σ (phase - offset - (4π/λ)*dist)².
 """
 
 import numpy as np
@@ -20,7 +18,7 @@ CM2M   = 1.0 / 100.0   # raw data in cm; optimiser works in metres
 
 
 def _theoretical_2d(params, x_antenna, y_antenna, phase):
-    """Objective returning squared residuals (matches notebook's theoretical_2D).
+    """Raw residuals for least_squares (one per timestep).
 
     params = [x_tag (m), y_tag (m), phase_offset (rad)]
     x_antenna, y_antenna: antenna trajectory arrays (m)
@@ -28,7 +26,7 @@ def _theoretical_2d(params, x_antenna, y_antenna, phase):
     """
     x_t, y_t, offset = params
     dist = np.sqrt((x_antenna - x_t) ** 2 + (y_antenna - y_t) ** 2)
-    return (phase - offset - (4.0 * np.pi / LAMBDA) * dist) ** 2
+    return phase - offset - (4.0 * np.pi / LAMBDA) * dist
 
 
 def _nonlinear_fit_2d(x_ant, y_ant, phase, start=(1.0, 0.5, -50.0)):
